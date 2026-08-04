@@ -98,38 +98,3 @@ the full reasoning.
    environment (a real Prometheus binary was run locally and every
    dashboard query executed against it).
 
-## Known gap: `serving/app.py` is not yet updated for this pipeline
-
-One real bug in `serving/app.py` *was* fixed as part of wiring up
-monitoring: it imported `CONTENT_TYPE` from `prometheus_client`, which
-doesn't exist (`CONTENT_TYPE_LATEST` is the correct name) -- as written,
-the app would have crashed at import time and Prometheus would have had
-nothing to scrape. That's fixed.
-
-What's still open: `serving/app.py` still reflects the earlier
-scikit-learn feature set
-(`NUMERIC_FEATURES`/`CATEGORICAL_FEATURES` imported from a module that no
-longer exists in that form) and has **not** been rewritten as part of this
-change -- rewriting it properly is a separate decision, not an oversight:
-
-Spark isn't a great fit for a low-latency, single-row REST endpoint the
-way `serving/app.py` is built -- a Spark session has real JVM startup and
-per-request overhead that a synchronous scikit-learn-style `/score`
-endpoint doesn't. Two reasonable paths forward, worth deciding on
-purpose rather than defaulting into one:
-
-- **Batch scoring** (already implemented): run `pipelines/train_model.py`
-  periodically and serve `reports/prospect_scores.parquet` from
-  wherever downstream systems read it. This is usually the right choice
-  for "should we approach this customer with a loan offer" -- a decision
-  that doesn't need sub-second latency.
-- **Export a lightweight model for real-time serving**: Spark ML's
-  `LogisticRegressionModel` coefficients can be extracted and re-applied
-  with a small amount of NumPy/pandas code (no Spark dependency) inside
-  `serving/app.py`, if a true low-latency endpoint is actually needed.
-
-Until one of those is implemented, treat `serving/` as stale relative to
-the rest of this project.
-
-Extend this baseline with your own orchestration, feature store, and
-CI/CD.
