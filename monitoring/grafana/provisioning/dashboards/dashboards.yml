@@ -1,0 +1,20 @@
+# Grafana dashboard provisioning.
+#
+# Tells Grafana to load every dashboard JSON found in
+# /var/lib/grafana/dashboards (mounted from monitoring/grafana/dashboards/
+# in this repo) automatically on startup -- no manual "Import dashboard"
+# step needed after `docker compose up`.
+
+apiVersion: 1
+
+providers:
+  - name: "loan-propensity-dashboards"
+    orgId: 1
+    folder: "Loan Propensity"
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 30
+    allowUiUpdates: true
+    options:
+      path: /var/lib/grafana/dashboards
+      foldersFromFilesStructure: false

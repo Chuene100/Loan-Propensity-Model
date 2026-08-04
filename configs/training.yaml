@@ -1,0 +1,30 @@
+# Training pipeline configuration.
+#
+# Paths accept either .csv or .parquet -- src/data_prep.py dispatches on
+# the file extension. The original case-study data ships as Parquet;
+# CSV is also supported since that's what the project skeleton assumed.
+
+data:
+  customers_path: data/customers.parquet
+  loans_path: data/loans.parquet
+  transactions_path: data/transactions.parquet
+
+spark:
+  app_name: loan_propensity_training
+  # Small on purpose for this dataset's scale -- see the docstring on
+  # get_spark_session() in src/utils.py for why.
+  shuffle_partitions: 8
+
+split:
+  test_fraction: 0.2
+  seed: 42
+
+output:
+  model_path: models/loan_propensity_spark_pipeline
+  metrics_path: reports/training_metrics.yaml
+  eda_report_path: reports/eda_report.yaml
+  prospect_scores_path: reports/prospect_scores.parquet
+
+model:
+  reg_param: 0.1
+  elastic_net_param: 0.0  # 0.0 = pure L2 (Ridge)

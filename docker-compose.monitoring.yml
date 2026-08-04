@@ -1,0 +1,63 @@
+# Monitoring stack: the serving API + Prometheus (scrapes it) + Grafana
+# (reads from Prometheus, pre-provisioned with the dashboard in
+# monitoring/grafana/dashboards/).
+#
+# Usage:
+#   docker compose -f docker-compose.monitoring.yml up --build
+#
+# Then:
+#   - Serving API:  http://localhost:8000/score  (POST), /metrics (GET)
+#   - Prometheus:   http://localhost:9090
+#   - Grafana:      http://localhost:3000  (default login admin/admin,
+#                   set GRAFANA_ADMIN_PASSWORD below to override)
+#
+# Known gap (see README): serving/app.py's /score endpoint still expects
+# the earlier scikit-learn feature set and needs a trained
+# models/loan_propensity_rf.joblib to start. The monitoring wiring here
+# (Prometheus scrape target, Grafana datasource + dashboard) is correct
+# and tested independently of that gap -- see monitoring/README.md.
+
+services:
+  loan-propensity-service:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.serving
+    container_name: loan-propensity-service
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+
+  prometheus:
+    image: prom/prometheus:v2.53.0
+    container_name: prometheus
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "9090:9090"
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+    depends_on:
+      - loan-propensity-service
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:11.1.0
+    container_name: grafana
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-admin}
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_PATHS_PROVISIONING_TEMPLATEDIR=/etc/grafana/provisioning
+      - GF_PATHS_CONFIG=/etc/grafana/grafana.ini
+    volumes:
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana-storage:/var/lib/grafana
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+
+volumes:
+  grafana-storage:

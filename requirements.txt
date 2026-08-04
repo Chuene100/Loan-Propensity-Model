@@ -1,0 +1,15 @@
+# Training-pipeline dependencies.
+#
+# NOTE on scipy/pandas: these are used only for small, already-aggregated
+# data (see src/eda_checks.py -- KS-test and chi-square inputs are collected
+# to the driver only after being reduced/bucketed in Spark). They are not
+# used to process the raw customers/loans/transactions tables, which stay
+# in Spark DataFrames throughout.
+pyspark==3.5.1
+pandas
+numpy
+scipy
+PyYAML
+setuptools
+matplotlib
+scikit-learn  # only for sklearn.metrics.roc_curve in src/viz.py -- the model itself is Spark ML

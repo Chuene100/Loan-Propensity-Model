@@ -1,0 +1,66 @@
+referential_integrity:
+  orphaned_loan_ids: 0
+  orphaned_transaction_ids: 0
+  passed: true
+income_outliers:
+  column: INCOME
+  lower_bound: 7782.5
+  upper_bound: 12146.5
+  min_value: 6163.0
+  max_value: 13377.0
+  n_outliers: 69
+  pct_outliers: 2.76
+  n_sentinel_hits: 0
+loan_amount_outliers:
+  column: AMOUNT
+  lower_bound: 10264.5
+  upper_bound: 29748.5
+  min_value: 7475.0
+  max_value: 33205.0
+  n_outliers: 33
+  pct_outliers: 1.03
+  n_sentinel_hits: 0
+negative_balance:
+  n_negative_rows: 0
+  pct_negative_rows: 0.0
+  n_customers_ever_negative: 0
+  pct_customers_ever_negative: 0.0
+  max_overdraft_depth: null
+  avg_overdraft_depth: null
+transaction_history:
+  low_history_percentile: 0.05
+  low_history_threshold: 29.0
+  n_customers_flagged: 177
+  pct_customers_flagged: 7.08
+class_balance:
+  label_column: OUTCOME
+  total_rows: 3203
+  counts:
+    Declined: 2745
+    TakeUp: 458
+  percentages:
+    Declined: 85.7
+    TakeUp: 14.3
+empirical_thresholds:
+  low_balance_threshold: 3587.0
+  age_tertile_33: 32.0
+  age_tertile_66: 36.0
+income_distribution_shift:
+  test: two_sample_ks
+  value_column: INCOME
+  group_column: customer_segment
+  group_a: Existing Borrower
+  group_b: Deposit-Only Prospect
+  n_a_sampled: 1348
+  n_b_sampled: 1152
+  ks_statistic: 0.06390640454995053
+  p_value: 0.011816423854071913
+  significant_at_0_05: true
+gender_segment_independence:
+  test: chi_square_independence
+  column_a: GENDER
+  column_b: customer_segment
+  chi2_statistic: 5.8076007123260105
+  p_value: 0.01595705048308733
+  degrees_of_freedom: 1
+  significant_at_0_05: true

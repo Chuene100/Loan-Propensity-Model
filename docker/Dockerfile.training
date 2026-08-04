@@ -1,0 +1,27 @@
+# Training image for the PySpark propensity pipeline.
+#
+# PySpark needs a JVM at runtime (Spark itself is a JVM application; the
+# Python API just talks to it), so this installs a headless JRE in
+# addition to the Python requirements -- that's the one thing that
+# changes versus a pure-Python training image.
+FROM python:3.11-slim
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends openjdk-17-jre-headless \
+    && rm -rf /var/lib/apt/lists/*
+
+ENV JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
+
+WORKDIR /app
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY src/ ./src/
+COPY pipelines/ ./pipelines/
+COPY configs/ ./configs/
+COPY data/ ./data/
+
+ENV PYTHONPATH=/app
+
+CMD ["python", "pipelines/train_model.py", "--config", "configs/training.yaml"]
