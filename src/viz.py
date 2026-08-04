@@ -354,3 +354,48 @@ def plot_kpi_correlation_heatmap(corr_df: pd.DataFrame, title: str = "KPI Featur
     ax.set_title(title, fontsize=13, fontweight="bold", color=NAVY)
     plt.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
     return ax
+
+
+
+def plot_confusion_matrix(
+    cm: dict,
+    labels: tuple = ("Block (0)", "Target (1)"),
+    business_labels: dict = None,
+    title: str = "Operational Confusion Matrix & Error Mapping",
+    ax=None,
+):
+    """2x2 confusion matrix with business-friendly labels per quadrant
+    (e.g. 'Wasted Promo' for a false positive) -- takes the small dict
+    from modeling.compute_confusion_matrix directly, nothing to collect
+    here.
+    """
+    business_labels = business_labels or {
+        "true_negative": "Correctly Blocked",
+        "false_positive": "Wasted Promo",
+        "false_negative": "Missed Target",
+        "true_positive": "Correct Conversion",
+    }
+    matrix = np.array([
+        [cm["true_negative"], cm["false_positive"]],
+        [cm["false_negative"], cm["true_positive"]],
+    ])
+    names = [["True Negative", "False Positive"], ["False Negative", "True Positive"]]
+    biz = [
+        [business_labels["true_negative"], business_labels["false_positive"]],
+        [business_labels["false_negative"], business_labels["true_positive"]],
+    ]
+
+    if ax is None:
+        _, ax = plt.subplots(figsize=(7, 6))
+    ax.imshow(matrix, cmap="Blues")
+    for i in range(2):
+        for j in range(2):
+            text_color = "white" if matrix[i, j] > matrix.max() * 0.5 else NAVY
+            ax.text(j, i, f"{names[i][j]}\n{matrix[i, j]}\n({biz[i][j]})",
+                    ha="center", va="center", fontsize=11, fontweight="bold", color=text_color)
+    ax.set_xticks([0, 1]); ax.set_xticklabels([f"Predicted {labels[0]}", f"Predicted {labels[1]}"])
+    ax.set_yticks([0, 1]); ax.set_yticklabels([f"Actual {labels[0]}", f"Actual {labels[1]}"])
+    ax.set_xlabel("Model Classification Prediction")
+    ax.set_ylabel("True Portfolio Status")
+    ax.set_title(title, fontsize=13, fontweight="bold", color=NAVY)
+    return ax

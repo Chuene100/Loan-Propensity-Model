@@ -258,3 +258,22 @@ def fairness_report(
         "disparate_impact_ratio_gender": disparate_impact_ratio,
         "four_fifths_rule_flag": disparate_impact_ratio < 0.80,
     }
+
+def compute_confusion_matrix(predictions: DataFrame, label_column: str = "TARGET_propensity") -> Dict[str, int]:
+    """Confusion matrix counts (TN, FP, FN, TP), computed as a single
+    distributed groupBy over (label, prediction) -- only four numbers are
+    ever collected to the driver, same discipline as the fairness report
+    above.
+    """
+    counts = predictions.groupBy(label_column, "prediction").count().toPandas()
+
+    def get(actual: int, pred: float) -> int:
+        row = counts[(counts[label_column] == actual) & (counts["prediction"] == pred)]
+        return int(row["count"].iloc[0]) if len(row) else 0
+
+    return {
+        "true_negative": get(0, 0.0),
+        "false_positive": get(0, 1.0),
+        "false_negative": get(1, 0.0),
+        "true_positive": get(1, 1.0),
+    }
