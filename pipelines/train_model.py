@@ -201,7 +201,7 @@ def main() -> None:
     fig_ax = viz.plot_feature_selection_scores(discriminant_scores)
     ensure_parent_dir(output_cfg["feature_selection_plot_path"])
     fig_ax.figure.savefig(output_cfg["feature_selection_plot_path"], bbox_inches="tight")
-    print(f"       Feature selection charts written to reports/ (variance, VIF, ANOVA)")
+    print("       Feature selection charts written to reports/ (variance, VIF, ANOVA)")
 
     # Explicit checkpoint: this is the exact feature list about to go into
     # training -- logged on purpose so feature selection's effect on

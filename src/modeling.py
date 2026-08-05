@@ -24,7 +24,7 @@ from typing import Dict, List, Tuple
 from pyspark.ml import Pipeline, PipelineModel
 from pyspark.ml.classification import LogisticRegression
 from pyspark.ml.evaluation import BinaryClassificationEvaluator
-from pyspark.ml.feature import StandardScaler, StringIndexer, VectorAssembler
+from pyspark.ml.feature import StandardScaler, VectorAssembler
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as F
 

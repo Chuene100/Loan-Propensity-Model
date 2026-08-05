@@ -22,7 +22,6 @@ from typing import Dict, List, Optional
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import seaborn as sns
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as F
 
