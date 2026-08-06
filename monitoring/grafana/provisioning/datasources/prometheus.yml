@@ -1,19 +1,9 @@
-# Grafana datasource provisioning.
-#
-# This file is auto-loaded on Grafana startup (mounted to
-# /etc/grafana/provisioning/datasources/ -- see docker-compose.monitoring.yml),
-# so Prometheus is already wired up as a data source with no manual
-# "Add data source" click-through required.
-
 apiVersion: 1
 
 datasources:
   - name: Prometheus
-    uid: prometheus_ds
     type: prometheus
     access: proxy
     url: http://prometheus:9090
     isDefault: true
-    editable: true
-    jsonData:
-      timeInterval: 15s
+    editable: false
