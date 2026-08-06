@@ -1,8 +1,8 @@
 #!/bin/bash
 
-echo "🚀 Starting randomized loan propensity traffic generator..."
-echo "📊 Targets: http://localhost:8000/score"
-echo "🛑 Press Ctrl+C at any time to stop the stream."
+echo "Starting randomized loan propensity traffic generator..."
+echo "Targets: http://localhost:8000/score"
+echo "Press Ctrl+C at any time to stop the stream."
 echo "--------------------------------------------------"
 
 while true; do
@@ -63,6 +63,6 @@ while true; do
       \"mean_loan_amount\": $MEAN_LOAN
     }]")
 
-  echo "👤 Customer: $ID | Age: $AGE | Income: \$$INCOME | API Response: $STATUS_CODE"
-  sleep 1.5
+  echo "Customer: $ID | Age: $AGE | Income: \$$INCOME | API Response: $STATUS_CODE"
+  sleep 1
 done
