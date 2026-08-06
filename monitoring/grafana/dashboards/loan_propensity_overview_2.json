@@ -1,0 +1,124 @@
+{
+  "id": null,
+  "uid": "loan-propensity-overview",
+  "title": "Loan Propensity Service — Overview",
+  "description": "Enterprise Monitoring Dashboard with Complete Simulated Input Feature Quantiles tracking live.",
+  "tags": ["loan-propensity", "mlops"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 3,
+  "refresh": "5s",
+  "time": {
+    "from": "now-15m",
+    "to": "now"
+  },
+  "panels": [
+    {
+      "id": 1, "title": "Service Up", "type": "stat",
+      "datasource": {"type": "prometheus", "uid": "prometheus_ds"},
+      "gridPos": {"h": 4, "w": 4, "x": 0, "y": 0},
+      "targets": [{"expr": "up{job=\"loan-propensity-service\"}", "legendFormat": "up"}],
+      "options": {"colorMode": "background", "graphMode": "none", "reduceOptions": {"calcs": ["lastNotNull"]}}
+    },
+    {
+      "id": 2, "title": "Prediction Rate (req/s)", "type": "stat",
+      "datasource": {"type": "prometheus", "uid": "prometheus_ds"},
+      "gridPos": {"h": 4, "w": 4, "x": 4, "y": 0},
+      "targets": [{"expr": "sum(rate(loan_propensity_predictions_total[1m]))", "legendFormat": "req/s"}],
+      "fieldConfig": {"defaults": {"unit": "reqps"}}
+    },
+    {
+      "id": 3, "title": "Error Rate (%)", "type": "stat",
+      "datasource": {"type": "prometheus", "uid": "prometheus_ds"},
+      "gridPos": {"h": 4, "w": 4, "x": 8, "y": 0},
+      "targets": [{"expr": "sum(rate(loan_propensity_predictions_total{status=\"error\"}[1m])) / clamp_min(sum(rate(loan_propensity_predictions_total[1m])), 1e-9) * 100"}],
+      "fieldConfig": {"defaults": {"unit": "percent"}}
+    },
+    {
+      "id": 5, "title": "Mean Propensity Score", "type": "stat",
+      "datasource": {"type": "prometheus", "uid": "prometheus_ds"},
+      "gridPos": {"h": 4, "w": 4, "x": 12, "y": 0},
+      "targets": [{"expr": "sum(rate(loan_propensity_score_sum[1m])) / clamp_min(sum(rate(loan_propensity_score_count[1m])), 1e-9)"}]
+    },
+    {
+      "id": 10, "title": "Demographics", "type": "row", "gridPos": {"h": 1, "w": 24, "x": 0, "y": 4}, "collapsed": false
+    },
+    {
+      "id": 11, "title": "Average Incoming Applicant Income", "type": "gauge",
+      "datasource": {"type": "prometheus", "uid": "prometheus_ds"},
+      "gridPos": {"h": 6, "w": 8, "x": 0, "y": 5},
+      "targets": [{"expr": "cust_feature_avg_income_current"}],
+      "fieldConfig": {"defaults": {"unit": "usd", "min": 15000, "max": 150000}}
+    },
+    {
+      "id": 12, "title": "Age Demographic Mix", "type": "timeseries",
+      "datasource": {"type": "prometheus", "uid": "prometheus_ds"},
+      "gridPos": {"h": 6, "w": 8, "x": 8, "y": 5},
+      "targets": [{"expr": "sum(rate(cust_feature_age_bucket[1m])) by (le)", "legendFormat": "Age <= {{le}}"}]
+    },
+    {
+      "id": 13, "title": "Applicant Gender Distribution", "type": "barchart",
+      "datasource": {"type": "prometheus", "uid": "prometheus_ds"},
+      "gridPos": {"h": 6, "w": 8, "x": 16, "y": 5},
+      "targets": [{"expr": "sum(increase(cust_feature_gender_total[1h])) by (gender)", "legendFormat": "{{gender}}"}]
+    },
+    {
+      "id": 20, "title": "Cash Flow & Transaction Velocity Metrics", "type": "row", "gridPos": {"h": 1, "w": 24, "x": 0, "y": 11}, "collapsed": false
+    },
+    {
+      "id": 21, "title": "Monthly Transaction Volume Trends (In vs Out Counts)", "type": "timeseries",
+      "datasource": {"type": "prometheus", "uid": "prometheus_ds"},
+      "gridPos": {"h": 6, "w": 12, "x": 0, "y": 12},
+      "targets": [
+        {"expr": "sum(rate(cust_feature_inflow_count_sum[1m]))", "legendFormat": "Inflow Txns/s"},
+        {"expr": "sum(rate(cust_feature_outflow_count_sum[1m]))", "legendFormat": "Outflow Txns/s"}
+      ]
+    },
+    {
+      "id": 22, "title": "Net Monthly Cashflow Distribution Quantile", "type": "timeseries",
+      "datasource": {"type": "prometheus", "uid": "prometheus_ds"},
+      "gridPos": {"h": 6, "w": 12, "x": 12, "y": 12},
+      "targets": [{"expr": "sum(rate(cust_feature_net_cashflow_bucket[1m])) by (le)", "legendFormat": "Cashflow <= {{le}}"}]
+    },
+    {
+      "id": 30, "title": "Bank Account Balance Profiling", "type": "row", "gridPos": {"h": 1, "w": 24, "x": 0, "y": 18}, "collapsed": false
+    },
+    {
+      "id": 31, "title": "Account Stability Realization (Avg vs Min vs Deviation)", "type": "timeseries",
+      "datasource": {"type": "prometheus", "uid": "prometheus_ds"},
+      "gridPos": {"h": 6, "w": 12, "x": 0, "y": 19},
+      "targets": [
+        {"expr": "sum(rate(cust_feature_avg_balance_sum[1m]))", "legendFormat": "Mean Balance ($)"},
+        {"expr": "sum(rate(cust_feature_min_balance_sum[1m]))", "legendFormat": "Floor Balance ($)"},
+        {"expr": "sum(rate(cust_feature_std_balance_sum[1m]))", "legendFormat": "Balance Variance"}
+      ]
+    },
+    {
+      "id": 32, "title": "Balance To Income Ratio Quantiles", "type": "timeseries",
+      "datasource": {"type": "prometheus", "uid": "prometheus_ds"},
+      "gridPos": {"h": 6, "w": 12, "x": 12, "y": 19},
+      "targets": [{"expr": "sum(rate(cust_feature_balance_to_income_ratio_bucket[1m])) by (le)", "legendFormat": "Ratio <= {{le}}"}]
+    },
+    {
+      "id": 40, "title": "Historical Credit Performance & Borrowing Footprint", "type": "row", "gridPos": {"h": 1, "w": 24, "x": 0, "y": 25}, "collapsed": false
+    },
+    {
+      "id": 41, "title": "Total Loans vs Declined Applications Volume", "type": "timeseries",
+      "datasource": {"type": "prometheus", "uid": "prometheus_ds"},
+      "gridPos": {"h": 6, "w": 12, "x": 0, "y": 26},
+      "targets": [
+        {"expr": "sum(rate(cust_feature_total_loans_sum[1m]))", "legendFormat": "Active Loans"},
+        {"expr": "sum(rate(cust_feature_num_declined_sum[1m]))", "legendFormat": "Declines"}
+      ]
+    },
+    {
+      "id": 42, "title": "Loan Capacity Spectrum (Max Bound vs Average Weight)", "type": "timeseries",
+      "datasource": {"type": "prometheus", "uid": "prometheus_ds"},
+      "gridPos": {"h": 6, "w": 12, "x": 12, "y": 26},
+      "targets": [
+        {"expr": "sum(rate(cust_feature_max_loan_amount_sum[1m]))", "legendFormat": "Max Bound Loan ($)"},
+        {"expr": "sum(rate(cust_feature_mean_loan_amount_sum[1m]))", "legendFormat": "Mean Weight Loan ($)"}
+      ]
+    }
+  ]
+}
