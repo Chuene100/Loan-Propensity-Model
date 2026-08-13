@@ -15,6 +15,9 @@ Run with:
 from __future__ import annotations
 
 import argparse
+import sys
+import os
+sys.path.append(os.getcwd())
 
 import matplotlib
 matplotlib.use("Agg")  # headless: this script never shows a plot window, only saves files

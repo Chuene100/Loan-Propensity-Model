@@ -1,11 +1,9 @@
-roc_auc: 0.916345984112975
+roc_auc: 0.9068314210061786
 n_train: 2550
 n_test: 653
 feature_columns:
 - AGE
 - INCOME
-- avg_balance
-- balance_std
 - total_transactions_count
 - KPI_net_cash_flow
 - KPI_balance_to_income_ratio
@@ -18,26 +16,24 @@ feature_columns:
 - FLAG_SEG_Young_HighIncome
 - FLAG_SEG_MidAge_LowIncome
 - GENDER_encoded
-- GENDER_unknown
 - prior_loans_taken
 - prior_successful_loans
-- prior_max_loan_amount
 - prior_repayment_track_record
 - requested_amount
 fairness:
   approval_rate_by_gender:
-    Female: 0.4241379310344828
-    Male: 0.21212121212121213
+    Female: 0.42758620689655175
+    Male: 0.18732782369146006
   approval_rate_by_age_band:
-    36-50: 0.23591549295774647
+    36-50: 0.20774647887323944
     <=25: 0.6071428571428571
     26-35: 0.34017595307917886
-  disparate_impact_ratio_gender: 0.5001231830500124
+  disparate_impact_ratio_gender: 0.4381053941171243
   four_fifths_rule_flag: true
 gender_ablation:
-  auc_with_gender: 0.916345984112975
-  auc_without_gender: 0.9152691968225952
-  auc_difference: 0.0010767872903797437
+  auc_with_gender: 0.9068314210061786
+  auc_without_gender: 0.9060017652250666
+  auc_difference: 0.0008296557811120486
   interpretation: Gender adds little to no measurable predictive power here; excluding
     it from the live model costs little and removes a protected characteristic from
     a lending decision.
