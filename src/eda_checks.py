@@ -1,11 +1,10 @@
 """
-Data-quality and exploratory checks, in PySpark.
+Data-quality and exploratory checks.
 
-This module is the direct port of the EDA additions from the case-study
+This module is the direct port of the EDA additions from the loan propensity case-study 
 notebook: referential integrity, outlier/sentinel detection, distribution
 comparisons, negative-balance auditing, transaction-history sufficiency,
-class balance, and empirically-derived thresholds (replacing hardcoded
-magic numbers like "500" or "age 35/60" with values read off the data).
+class balance, and empirically-derived thresholds.
 
 Design note: most of these checks reduce a big Spark DataFrame down to a
 handful of numbers or a small contingency table *before* anything leaves
@@ -27,6 +26,8 @@ from typing import Dict, List, Tuple
 import pandas as pd
 import numpy as np
 from pyspark.sql import DataFrame
+from pyspark.ml.feature import VectorAssembler
+from pyspark.ml.stat import Correlation
 from pyspark.sql import functions as F
 from scipy.stats import chi2_contingency, ks_2samp
 
@@ -258,14 +259,13 @@ def derive_empirical_thresholds(
 
     Two thresholds used elsewhere in `features.py` are derived here:
 
-    - low_balance_threshold: the original notebook used a hardcoded
-      "500" to define a "low balance" event. Here we instead take the
+    - low_balance_threshold: To define a "low balance" event. Here we instead take the
       10th percentile of *positive* balances (excluding already-negative
       accounts, which would pull the percentile down for the wrong
       reason) -- so "low balance" means "bottom decile of what a
       typical, non-overdrawn account looks like" for *this* population,
       not an arbitrary constant that may not fit a different portfolio.
-    - lifecycle age tertiles: replacing the hardcoded 35/60 age cutoffs
+    - lifecycle age tertiles: replacing the 35/60 age cutoffs
       with the 33rd/66th percentiles of the actual AGE distribution, so
       the three lifecycle segments are always roughly equal-sized
       regardless of how this customer base's age profile shifts over
@@ -400,9 +400,7 @@ def compute_kpi_correlation_matrix(df: DataFrame, kpi_cols: List[str]) -> pd.Dat
     instead of inverting it. Only the small (n_kpi x n_kpi) result is
     collected to the driver.
     """
-    from pyspark.ml.feature import VectorAssembler
-    from pyspark.ml.stat import Correlation
-
+    
     assembled = VectorAssembler(inputCols=list(kpi_cols), outputCol="_kpi_vec").transform(df)
     corr_matrix = Correlation.corr(assembled, "_kpi_vec", method="pearson").head()[0].toArray()
     return pd.DataFrame(corr_matrix, index=kpi_cols, columns=kpi_cols)

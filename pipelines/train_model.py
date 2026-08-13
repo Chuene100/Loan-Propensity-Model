@@ -148,7 +148,7 @@ def main() -> None:
     )
 
     train_df, test_df = model_lib.train_test_split(
-        loan_level, test_fraction=split_cfg.get("test_fraction", 0.2), seed=split_cfg.get("seed", 42)
+        loan_level, test_fraction=split_cfg.get("test_fraction", 0.15), seed=split_cfg.get("seed", 42)
     )
     train_df.cache()
     test_df.cache()

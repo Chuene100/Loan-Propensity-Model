@@ -7,11 +7,6 @@ engineering happens. Every cleaning decision here mirrors a specific
 finding from the exploratory notebook (see notebooks/ and the docstrings
 below for the "why"), rather than being an unexplained default.
 
-Design note on file formats: the original case-study data ships as
-Parquet, but the project skeleton's config used CSV paths. `load_data`
-accepts either -- it dispatches on the file extension -- so the same
-code works whether you're pointed at the original .parquet files or at
-CSV exports.
 """
 
 from __future__ import annotations

@@ -1,9 +1,9 @@
 """
-Feature engineering, in PySpark.
+Feature engineering.
 
 This module builds two tables from the cleaned raw data:
 
-1. `build_customer_features` -- one row per customer, aggregating all of
+1. `build_customer_level_features` -- one row per customer, aggregating all of
    their transaction and loan history into the financial-health KPIs
    defined in the case study's assumptions (net cash flow, balance
    volatility, burn rate, credit capacity, etc.), plus the
@@ -17,7 +17,7 @@ This module builds two tables from the cleaned raw data:
    This is the table the model is actually trained on -- see the
    "why not customer-level" note on that function for the reasoning.
 
-Everything here is a straight, documented port of the case-study
+Everything here is a straight, documented port of the  loan propensity case-study
 notebook's logic; nothing new was invented, but every KPI now carries a
 comment on what it means and why it's computed the way it is, since that
 context lived only in scattered notebook markdown cells before.
