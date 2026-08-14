@@ -81,7 +81,7 @@ def build_pipeline(
         featuresCol="features",
         labelCol=label_column,
         weightCol="class_weight",
-        maxIter=100,
+        maxIter=1000,
         regParam=reg_param,
         elasticNetParam=elastic_net_param,
     )
