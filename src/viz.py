@@ -398,3 +398,237 @@ def plot_confusion_matrix(
     ax.set_ylabel("True Portfolio Status")
     ax.set_title(title, fontsize=13, fontweight="bold", color=NAVY)
     return ax
+
+
+def plot_threshold_comparison(rates: dict, ax=None):
+    """Bar chart: historical base rate vs. predicted-positive rate at the
+    default 0.5 cutoff vs. at the rebased threshold. Visual companion to
+    modeling.compare_approval_rates -- makes the class-weighting shift,
+    and the fix, visible in one chart instead of inferred from two
+    separate ones."""
+    labels = ["Historical\n(loans.OUTCOME)", "Predicted\n(default 0.5 cutoff)", "Predicted\n(rebased threshold)"]
+    values = [
+        rates["historical_base_rate"],
+        rates["predicted_rate_default_threshold"],
+        rates["predicted_rate_rebased_threshold"],
+    ]
+    colors = [OK, WARN, NAVY]
+
+    if ax is None:
+        _, ax = plt.subplots(figsize=(7, 5))
+    bars = ax.bar(labels, values, color=colors)
+    for bar, v in zip(bars, values):
+        ax.text(bar.get_x() + bar.get_width() / 2, v + 0.01, f"{v:.1%}", ha="center", fontweight="bold")
+    ax.axhline(rates["historical_base_rate"], color=OK, linestyle="--", linewidth=1, alpha=0.5)
+    ax.set_ylim(0, max(values) * 1.25)
+    ax.set_ylabel("Rate")
+    ax.set_title(
+        f"Approval Rate: Historical vs. Model Prediction\n(rebased threshold = {rates['threshold_used']:.3f})",
+        fontsize=13, fontweight="bold", color=NAVY,
+    )
+    return ax
+
+
+def plot_woe_bins(woe_detail: pd.DataFrame, title: str = None, ax=None):
+    """WoE per bin -- shows whether a feature's relationship with the
+    target is monotonic (steadily rising/falling) or non-monotonic (a
+    U-shape or other pattern a single linear coefficient can't reveal)."""
+    if ax is None:
+        _, ax = plt.subplots(figsize=(8, 4.5))
+    colors = [OK if w >= 0 else WARN for w in woe_detail["woe"]]
+    ax.bar(woe_detail["_bin_value"].astype(str), woe_detail["woe"], color=colors)
+    ax.axhline(0, color=MUTED, linewidth=1)
+    feat_name = title or woe_detail.attrs.get("feature", "Feature")
+    total_iv = woe_detail.attrs.get("total_iv")
+    ax.set_title(f"WoE by Bin: {feat_name}" + (f" (IV = {total_iv:.3f})" if total_iv is not None else ""),
+                 fontsize=13, fontweight="bold", color=NAVY)
+    ax.set_xlabel("Bin (quantile order)")
+    ax.set_ylabel("Weight of Evidence")
+    return ax
+
+
+def plot_iv_summary(iv_summary: pd.DataFrame, title: str = "Information Value by Feature", ax=None):
+    """IV per feature, ranked, with the standard weak/medium/strong/
+    suspicious interpretation bands marked as reference lines."""
+    pdf = iv_summary.sort_values("IV", ascending=True)
+    if ax is None:
+        _, ax = plt.subplots(figsize=(9, max(4, 0.35 * len(pdf))))
+    ax.barh(pdf["Feature"], pdf["IV"], color=NAVY)
+    for x in (0.02, 0.1, 0.3, 0.5):
+        ax.axvline(x, color=WARN, linestyle="--", linewidth=1, alpha=0.6)
+    ax.set_title(title, fontsize=13, fontweight="bold", color=NAVY)
+    ax.set_xlabel("Information Value (IV) \u2014 dashed lines: 0.02 / 0.1 / 0.3 / 0.5 thresholds")
+    return ax
+
+
+# viz.py
+import matplotlib.pyplot as plt
+import seaborn as sns
+import pandas as pd
+
+def plot_woe_relationship(woe_detail: pd.DataFrame) -> None:
+    """
+    Plots the binned feature values against their calculated WoE.
+    Looks for a linear, monotonic trend to validate suitability 
+    for Logistic Regression.
+    """
+    feature_name = woe_detail.attrs.get("feature", "Feature")
+    total_iv = woe_detail.attrs.get("total_iv", 0.0)
+    
+    plt.figure(figsize=(10, 5))
+    sns.set_theme(style="whitegrid")
+    
+    # Cast bin values to string so they render as clean categorical steps on the X-axis
+    woe_detail["_bin_str"] = woe_detail["_bin_value"].astype(str)
+    
+    # Plot the WoE line and markers
+    ax = sns.lineplot(
+        data=woe_detail, 
+        x="_bin_str", 
+        y="woe", 
+        marker="o", 
+        color="darkblue", 
+        linewidth=2.5,
+        markersize=8
+    )
+    
+    # Add a reference baseline at WoE = 0
+    plt.axhline(0, color="red", linestyle="--", alpha=0.6, label="Neutral Risk Baseline (WoE=0)")
+    
+    # Polish text and visuals
+    plt.title(f'WoE Trend Analysis: {feature_name}\n(Total Information Value: {total_iv:.4f})', fontsize=13, fontweight="bold", pad=15)
+    plt.xlabel(f'Engineered Bins / Quantiles for {feature_name}', fontsize=11)
+    plt.ylabel('Weight of Evidence (WoE)', fontsize=11)
+    plt.legend(loc="upper right")
+    
+    sns.despine()
+    plt.tight_layout()
+    plt.show()
+
+# viz.py
+import matplotlib.pyplot as plt
+import seaborn as sns
+import pandas as pd
+
+def plot_iv_summary(iv_summary: pd.DataFrame) -> None:
+    """
+    Plots a global horizontal bar chart comparing the information value (IV)
+    of all features together against the target.
+    """
+    plt.figure(figsize=(12, 6))
+    sns.set_theme(style="whitegrid")
+    
+    # Render the global comparison bar chart
+    sns.barplot(
+        data=iv_summary,
+        x='IV',
+        y='Feature',
+        palette='viridis'
+    )
+    
+    # Add industry audit guide markers
+    plt.axvline(x=0.02, color='gray', linestyle=':', alpha=0.7, label='Weak Limit (0.02)')
+    plt.axvline(x=0.30, color='orange', linestyle='--', alpha=0.7, label='Strong Limit (0.30)')
+    plt.axvline(x=0.50, color='red', linestyle='-', alpha=0.7, label='Suspicious/Leakage Limit (0.50)')
+    
+    plt.title('Global Feature Screening: Information Value (IV) Summary Scoreboard', fontsize=14, fontweight='bold', pad=15)
+    plt.xlabel('Information Value (IV) Magnitude', fontsize=12)
+    plt.ylabel('Engineered Feature Candidates', fontsize=12)
+    plt.legend(loc='lower right', frameon=True)
+    
+    sns.despine()
+    plt.tight_layout()
+    plt.show()
+
+def plot_model_coefficients(feature_names, coefficients) -> None:
+    """
+    Plots the final trained model feature importance weights (Coefficients).
+    """
+    coef_df = pd.DataFrame({
+        'Feature': feature_names,
+        'Weight': coefficients
+    }).sort_values(by='Weight', key=abs, ascending=False)
+    
+    plt.figure(figsize=(12, 6))
+    sns.barplot(
+        data=coef_df,
+        x='Weight',
+        y='Feature',
+        palette='vlag'
+    )
+    plt.axvline(x=0, color='black', linestyle='--', alpha=0.7)
+    plt.title('Logistic Regression Feature Weight Matrix (Model Importance)', fontsize=14, fontweight='bold', pad=15)
+    plt.xlabel('Coefficient Weight (Direction & Magnitude)', fontsize=12)
+    plt.ylabel('Engineered Feature', fontsize=12)
+    
+    sns.despine()
+    plt.tight_layout()
+    plt.show()
+
+    # viz.py
+import matplotlib.pyplot as plt
+import seaborn as sns
+import pandas as pd
+
+def plot_woe_grid(woe_details_dict: dict) -> None:
+    """
+    Renders a 2x2 grid layout displaying the Weight of Evidence (WoE) 
+    trends for the top 4 features simultaneously to evaluate linearity 
+    and monotonicity at a glance.
+    
+    Parameters:
+    -----------
+    woe_details_dict : dict
+        A dictionary where keys are clean title names and values are 
+        the local Pandas DataFrames output by compute_woe_iv().
+    """
+    # Initialize the 2x2 plotting grid
+    fig, axes = plt.subplots(2, 2, figsize=(16, 11))
+    sns.set_theme(style="whitegrid")
+    
+    # Flatten the 2x2 axes array to 1D for easy sequential looping
+    axes_flat = axes.flatten()
+    
+    # Palette configuration
+    colors = ["#1f77b4", "#ff7f0e", "#2ca02c", "#d62728"]
+    
+    # Iterate through the dictionary and populate each quadrant
+    for i, (title_name, woe_df) in enumerate(woe_details_dict.items()):
+        if i >= 4:
+            break  # Limit strictly to a 2x2 grid layout
+            
+        ax = axes_flat[i]
+        feature_raw_name = woe_df.attrs.get("feature", "Feature")
+        total_iv = woe_df.attrs.get("total_iv", 0.0)
+        
+        # Cast bin values to string so they render as clean discrete steps on the X-axis
+        woe_df["_bin_str"] = woe_df["_bin_value"].astype(str)
+        
+        # Plot the main WoE line and markers
+        sns.lineplot(
+            data=woe_df, 
+            x="_bin_str", 
+            y="woe", 
+            marker="o", 
+            color=colors[i], 
+            linewidth=2.5,
+            markersize=7,
+            ax=ax
+        )
+        
+        # Add a reference baseline at WoE = 0
+        ax.axhline(0, color="gray", linestyle="--", alpha=0.5)
+        
+        # Apply clean, distinct styling to each subplot panel
+        ax.set_title(f"{title_name} (IV: {total_iv:.3f})", fontsize=12, fontweight="bold", pad=8)
+        ax.set_xlabel("Engineered Bins / Quantiles", fontsize=10)
+        ax.set_ylabel("Weight of Evidence (WoE)", fontsize=10)
+        
+        # Prevent long strings from clashing on the X-axis
+        ax.tick_params(axis='x', rotation=15, labelsize=9)
+        
+    # De-clutter chart boundaries
+    sns.despine()
+    plt.tight_layout()
+    plt.show()
+

@@ -81,7 +81,7 @@ def build_pipeline(
         featuresCol="features",
         labelCol=label_column,
         weightCol="class_weight",
-        maxIter=1000,
+        maxIter=100,
         regParam=reg_param,
         elasticNetParam=elastic_net_param,
     )
@@ -110,7 +110,7 @@ def add_class_weight_column(
 
 
 def train_test_split(
-    df: DataFrame, label_column: str = "TARGET_propensity", test_fraction: float = 0.2, seed: int = 42
+    df: DataFrame, label_column: str = "TARGET_propensity", test_fraction: float = 0.15, seed: int = 42
 ) -> Tuple[DataFrame, DataFrame]:
     """Stratified-ish train/test split.
 
@@ -277,3 +277,48 @@ def compute_confusion_matrix(predictions: DataFrame, label_column: str = "TARGET
         "false_negative": get(1, 0.0),
         "true_positive": get(1, 1.0),
     }
+
+
+def find_threshold_for_target_rate(predictions: DataFrame, target_rate: float = 0.143) -> float:
+    """Starting-point threshold: the cutoff whose predicted-positive rate
+    matches the historical base rate. Treat this as a sane default to
+    move from, not the final answer -- the real threshold should come
+    from the cost trade-off between a wasted promo (false positive) and
+    a missed conversion (false negative), same discussion as the
+    confusion-matrix slide."""
+    from pyspark.ml.functions import vector_to_array
+    pdf = (
+        predictions.withColumn("prob_array", vector_to_array(F.col("probability")))
+        .select(F.col("prob_array").getItem(1).alias("predicted_prob"))
+        .toPandas()
+    )
+    return float(pdf["predicted_prob"].quantile(1 - target_rate))
+
+def compare_approval_rates(
+    predictions: DataFrame, historical_base_rate: float, threshold: float
+) -> Dict[str, float]:
+    """
+    Three numbers, side by side: the historical base rate, the model's
+    predicted-positive rate at Spark ML's default 0.5 cutoff, and the
+    predicted-positive rate at the rebased threshold from
+    find_threshold_for_target_rate. This is the direct visual answer to
+    "why doesn't the model's approval rate match the historical rate" --
+    class-weighted training shifts the default-threshold number away from
+    the base rate on purpose; the rebased number should land close to it
+    by construction.
+    """
+    from pyspark.ml.functions import vector_to_array
+
+    with_prob = predictions.withColumn(
+        "predicted_prob", vector_to_array(F.col("probability")).getItem(1)
+    )
+    rate_default = with_prob.filter(F.col("predicted_prob") >= 0.5).count() / with_prob.count()
+    rate_rebased = with_prob.filter(F.col("predicted_prob") >= threshold).count() / with_prob.count()
+
+    return {
+        "historical_base_rate": historical_base_rate,
+        "predicted_rate_default_threshold": rate_default,
+        "predicted_rate_rebased_threshold": rate_rebased,
+        "threshold_used": threshold,
+    }
+

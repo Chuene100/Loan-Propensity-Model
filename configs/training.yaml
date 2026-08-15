@@ -29,6 +29,7 @@ output:
   variance_plot_path: "reports/variance_plot.png"
   vif_plot_path: "reports/vif_plot.png"
   feature_selection_plot_path: "reports/feature_selection_plot.png"
+  threshold_comparison_plot_path: "reports/threshold_comparison_plot.png"
 
 model:
   reg_param: 0.1

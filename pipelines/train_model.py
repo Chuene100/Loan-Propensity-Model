@@ -229,6 +229,20 @@ def main() -> None:
     fairness = model_lib.fairness_report(predictions)
     #gender_ablation = model_lib.assess_gender_contribution(train_df, test_df, feature_columns)
 
+    threshold = model_lib.find_threshold_for_target_rate(predictions, target_rate=eda_report["class_balance"]["percentages"]["TakeUp"] / 100)
+    rate_comparison = model_lib.compare_approval_rates(predictions, eda_report["class_balance"]["percentages"]["TakeUp"] / 100, threshold)
+    metrics["rate_comparison"] = rate_comparison  # folds into training_metrics.yaml, no new file
+
+    ax = viz.plot_threshold_comparison(rate_comparison)
+    ensure_parent_dir(output_cfg["threshold_comparison_plot_path"])
+    ax.figure.savefig(output_cfg["threshold_comparison_plot_path"], bbox_inches="tight")
+
+    predictions_at_threshold = predictions.withColumn(
+    "prediction",
+    (vector_to_array(F.col("probability")).getItem(1) >= threshold).cast("double"),
+    )
+    fairness = model_lib.fairness_report(predictions_at_threshold)  # replaces the default-threshold fairness call
+
     gender_ablation = model_lib.assess_gender_contribution(
     train_df, test_df, feature_columns,
     reg_param=model_cfg.get("reg_param", 0.1),

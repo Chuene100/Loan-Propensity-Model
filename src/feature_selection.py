@@ -215,3 +215,86 @@ def select_features_by_vif(
         remaining.remove(worst["Feature"])
 
     return remaining, dropped
+
+
+def compute_woe_iv(
+    df: DataFrame, feature_col: str, label_col: str, n_bins: int = 10, is_categorical: bool = False
+) -> pd.DataFrame:
+    """
+    Weight of Evidence (WoE) and Information Value (IV) for one feature
+    against a binary label -- standard credit-scoring technique (Siddiqi,
+    "Credit Risk Scorecards"). Continuous features are binned into
+    n_bins quantile buckets via QuantileDiscretizer (Spark ML,
+    distributed); categorical/flag features are used as their own bins
+    directly, no discretization needed.
+
+    WoE per bin = ln(% non-event in bin / % event in bin) -- positive WoE
+    means that bin is over-represented among non-events (Declined)
+    relative to events (TakeUp). Only the per-bin counts (at most n_bins
+    rows) are ever collected to the driver.
+
+    IV = sum over bins of (% non-event - % event) * WoE -- summarises
+    the whole feature's separating power in one number. Conventional
+    interpretation bands:
+        < 0.02   not useful
+        0.02-0.1 weak
+        0.1-0.3  medium
+        0.3-0.5  strong
+        > 0.5    suspicious -- check for leakage before trusting it
+    """
+    from pyspark.ml.feature import QuantileDiscretizer
+
+    working = df.select(feature_col, label_col)
+    if is_categorical:
+        working = working.withColumnRenamed(feature_col, "_bin_value")
+    else:
+        discretizer = QuantileDiscretizer(
+            numBuckets=n_bins, inputCol=feature_col, outputCol="_bin_value", handleInvalid="keep"
+        )
+        working = discretizer.fit(working).transform(working)
+
+    bin_counts = (
+        working.groupBy("_bin_value", label_col).count()
+        .groupBy("_bin_value")
+        .pivot(label_col, [0, 1])
+        .sum("count")
+        .fillna(0)
+        .toPandas()
+        .sort_values("_bin_value")
+        .rename(columns={0: "non_event_count", 1: "event_count"})
+    )
+
+    # 2. Comprehensive Type-Agnostic Rename Mapping
+    # This matches string, float, and integer representations seamlessly
+    rename_map = {
+        0: "non_event_count", "0": "non_event_count", 0.0: "non_event_count",
+        1: "event_count",     "1": "event_count",     1.0: "event_count"
+    }
+    
+    bin_counts = bin_counts.rename(columns=rename_map)
+
+    total_non_event = bin_counts["non_event_count"].sum()
+    total_event = bin_counts["event_count"].sum()
+
+    # Laplace-style smoothing so an empty bin doesn't produce ln(0).
+    bin_counts["pct_non_event"] = (bin_counts["non_event_count"] + 0.5) / (total_non_event + 0.5 * len(bin_counts))
+    bin_counts["pct_event"] = (bin_counts["event_count"] + 0.5) / (total_event + 0.5 * len(bin_counts))
+    bin_counts["woe"] = np.log(bin_counts["pct_non_event"] / bin_counts["pct_event"])
+    bin_counts["iv_contribution"] = (bin_counts["pct_non_event"] - bin_counts["pct_event"]) * bin_counts["woe"]
+
+    bin_counts.attrs["feature"] = feature_col
+    bin_counts.attrs["total_iv"] = bin_counts["iv_contribution"].sum()
+    return bin_counts
+
+
+def compute_iv_summary(
+    df: DataFrame, feature_cols: List[str], label_col: str, n_bins: int = 10, categorical_cols: tuple = ()
+) -> pd.DataFrame:
+    """IV for every feature in feature_cols, ranked -- the WoE/IV
+    counterpart to rank_features_anova, using credit-scoring convention
+    instead of an F-statistic."""
+    rows = []
+    for c in feature_cols:
+        detail = compute_woe_iv(df, c, label_col, n_bins=n_bins, is_categorical=c in categorical_cols)
+        rows.append({"Feature": c, "IV": detail.attrs["total_iv"]})
+    return pd.DataFrame(rows).sort_values("IV", ascending=False).reset_index(drop=True)
