@@ -769,4 +769,4 @@ def plot_demographic_composition(composition: pd.DataFrame, title: str, ax=None)
     ax.set_ylabel("Proportion")
     ax.set_title(title, fontsize=13, fontweight="bold", color=NAVY)
     ax.legend()
-    return ax
+    return 
