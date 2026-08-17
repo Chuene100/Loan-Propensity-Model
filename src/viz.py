@@ -632,3 +632,141 @@ def plot_woe_grid(woe_details_dict: dict) -> None:
     plt.tight_layout()
     plt.show()
 
+
+def plot_count_histogram_by_segment(
+    df: DataFrame, value_col: str, group_col: str, groups: list, title: str,
+    max_sample_per_group: int = 20000, ax=None,
+):
+    """
+    Overlaid histogram of a discrete count variable by group -- shows the
+    actual distribution shape directly, rather than compressing it into
+    quartiles/whiskers the way a boxplot does. Density-normalized (not
+    raw counts) so groups of different sizes (1,348 vs. 1,152 customers
+    here) are visually comparable.
+    """
+    if ax is None:
+        _, ax = plt.subplots(figsize=(8, 5))
+    colors = [NAVY, WARN, OK]
+    max_val = int(df.agg(F.max(value_col)).first()[0])
+    bins = np.arange(0, max_val + 2) - 0.5  # integer-aligned bins
+
+    for i, g in enumerate(groups):
+        subset = df.filter(F.col(group_col) == g).select(value_col)
+        n = subset.count()
+        fraction = min(1.0, max_sample_per_group / n) if n else 1.0
+        values = subset.sample(withReplacement=False, fraction=fraction, seed=42).toPandas()[value_col]
+        ax.hist(values, bins=bins, density=True, alpha=0.55, label=str(g), color=colors[i % len(colors)], edgecolor="white")
+
+    ax.set_title(title, fontsize=13, fontweight="bold", color=NAVY)
+    ax.set_xlabel("Number of dips below threshold")
+    ax.set_ylabel("Proportion of customers")
+    ax.legend()
+    return ax
+
+
+def plot_ecdf_by_segment(
+    df: DataFrame, value_col: str, group_col: str, groups: list, title: str,
+    xlabel: str = None, ylabel: str = "Cumulative proportion",
+    max_sample_per_group: int = 20000, ax=None,
+):
+    """
+    Empirical CDF: for each group, what fraction of rows have a value
+    <= x. Two or more curves that are cleanly separated (one always
+    above the other) is a direct statement that one group's values are
+    systematically higher -- no quartile/whisker vocabulary needed.
+    """
+    if ax is None:
+        _, ax = plt.subplots(figsize=(8, 5))
+    colors = [NAVY, WARN, OK]
+
+    for i, g in enumerate(groups):
+        subset = df.filter(F.col(group_col) == g).select(value_col)
+        n = subset.count()
+        fraction = min(1.0, max_sample_per_group / n) if n else 1.0
+        values = np.sort(subset.sample(withReplacement=False, fraction=fraction, seed=42).toPandas()[value_col].to_numpy())
+        y = np.arange(1, len(values) + 1) / len(values)
+        ax.step(values, y, where="post", color=colors[i % len(colors)], linewidth=2, label=str(g))
+
+    ax.set_title(title, fontsize=13, fontweight="bold", color=NAVY)
+    ax.set_xlabel(xlabel or value_col)
+    ax.set_ylabel(ylabel)
+    ax.legend()
+    ax.set_ylim(0, 1.02)
+    return ax
+
+
+def plot_score_stripplot_by_group(
+    df: DataFrame, value_col: str, group_col: str, groups: list, title: str,
+    max_sample_per_group: int = 500, ax=None, jitter: float = 0.12,
+):
+    """
+    Every prospect's score as one point, jittered horizontally within its
+    group so overlapping points stay visible. Shows exactly which
+    customers are driving the pattern (e.g. a specific High-Risk-labelled
+    prospect scoring ~0.97) instead of reducing them to an anonymous
+    outlier dot the way a boxplot does. A black tick marks each group's
+    median -- the one summary statistic worth keeping.
+    """
+    if ax is None:
+        _, ax = plt.subplots(figsize=(8, 5.5))
+    rng = np.random.default_rng(42)
+    colors = [WARN, NAVY, OK]
+    for i, g in enumerate(groups):
+        subset = df.filter(F.col(group_col) == g).select(value_col)
+        n = subset.count()
+        fraction = min(1.0, max_sample_per_group / n) if n else 1.0
+        values = subset.sample(withReplacement=False, fraction=fraction, seed=42).toPandas()[value_col]
+        x = i + rng.uniform(-jitter, jitter, size=len(values))
+        ax.scatter(x, values, alpha=0.5, s=22, color=colors[i % len(colors)], edgecolor="white", linewidth=0.3)
+        ax.hlines(values.median(), i - 0.2, i + 0.2, color="black", linewidth=2.5, zorder=5)
+    ax.set_xticks(range(len(groups)))
+    ax.set_xticklabels(groups, rotation=15)
+    ax.set_title(title, fontsize=13, fontweight="bold", color=NAVY)
+    ax.set_ylabel(value_col)
+    return ax
+
+
+def check_quadrant_demographic_skew(customer_features: DataFrame, quadrant_col: str = "KPI_action_quadrant"):
+    """
+    Cross-tab of business-rule quadrant against gender and age band --
+    checks whether the quadrant assignment (built from income, balance
+    volatility, repayment rate) happens to correlate with a protected
+    attribute, which would mean the quadrant is an indirect proxy for
+    the same bias already found in the model's direct GENDER coefficient.
+    """
+    customer_features.groupBy(quadrant_col, "GENDER").count().orderBy(quadrant_col, "GENDER").show()
+
+    age_banded = customer_features.withColumn(
+        "age_band",
+        F.when(F.col("AGE") <= 25, "<=25").when(F.col("AGE") <= 35, "26-35")
+         .when(F.col("AGE") <= 50, "36-50").when(F.col("AGE") <= 65, "51-65").otherwise("65+"),
+    )
+    age_banded.groupBy(quadrant_col, "age_band").count().orderBy(quadrant_col, "age_band").show()
+
+
+def plot_demographic_composition(composition: pd.DataFrame, title: str, ax=None):
+    """
+    Grouped bar chart: proportion of each demographic category within
+    every quadrant, with an 'Overall (baseline)' bar for direct
+    comparison. A quadrant whose bars visibly depart from the baseline
+    row is a candidate proxy for that demographic -- the same
+    disparate-impact question already asked of GENDER directly, now
+    asked of the business-rule quadrant instead.
+    """
+    categories = [c for c in composition.columns if c != "group"]
+    groups = composition["group"].tolist()
+    x = np.arange(len(groups))
+    width = 0.8 / len(categories)
+    colors = [NAVY, WARN, OK, ICE]
+
+    if ax is None:
+        _, ax = plt.subplots(figsize=(10, 5))
+    for i, cat in enumerate(categories):
+        ax.bar(x + i * width - 0.4 + width / 2, composition[cat], width, label=str(cat), color=colors[i % len(colors)])
+
+    ax.set_xticks(x)
+    ax.set_xticklabels(groups, rotation=15)
+    ax.set_ylabel("Proportion")
+    ax.set_title(title, fontsize=13, fontweight="bold", color=NAVY)
+    ax.legend()
+    return ax

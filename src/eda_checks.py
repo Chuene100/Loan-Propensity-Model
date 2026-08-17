@@ -404,3 +404,26 @@ def compute_kpi_correlation_matrix(df: DataFrame, kpi_cols: List[str]) -> pd.Dat
     assembled = VectorAssembler(inputCols=list(kpi_cols), outputCol="_kpi_vec").transform(df)
     corr_matrix = Correlation.corr(assembled, "_kpi_vec", method="pearson").head()[0].toArray()
     return pd.DataFrame(corr_matrix, index=kpi_cols, columns=kpi_cols)
+
+
+def compute_demographic_composition(df: DataFrame, group_col: str, demo_col: str) -> pd.DataFrame:
+    """
+    Composition of demo_col within each group_col category, as
+    PROPORTIONS -- not raw counts -- so quadrants of very different
+    sizes (Segment_B_High_Risk is much larger than the others) can be
+    compared on equal footing. Includes an "Overall (baseline)" row, so
+    a skewed quadrant shows up as a deviation from the population
+    baseline, not just a difference between quadrants.
+
+    One small distributed aggregation (group_col x demo_col counts);
+    only the resulting small pivot table is collected to the driver.
+    """
+    counts = df.groupBy(group_col, demo_col).count().toPandas()
+    pivot = counts.pivot(index=group_col, columns=demo_col, values="count").fillna(0)
+    pivot = pivot.div(pivot.sum(axis=1), axis=0)
+
+    overall = df.groupBy(demo_col).count().toPandas().set_index(demo_col)["count"]
+    overall = overall / overall.sum()
+    pivot.loc["Overall (baseline)"] = overall
+
+    return pivot.reset_index().rename(columns={group_col: "group"})
