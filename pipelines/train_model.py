@@ -217,37 +217,37 @@ def main() -> None:
     # 6. Train, evaluate, and run the bias/fairness assessment
     # ---------------------------------------------------------------
     print("[6/7] Training model and running fairness assessment...")
-    #pipeline_model, predictions, auc = model_lib.train_propensity_model(
-    #    train_df, test_df, feature_columns
-    #)
-
     pipeline_model, predictions, auc = model_lib.train_propensity_model(
-    train_df, test_df, feature_columns,
-    reg_param=model_cfg.get("reg_param", 0.1),
-    elastic_net_param=model_cfg.get("elastic_net_param", 0.0),
-)
-    fairness = model_lib.fairness_report(predictions)
-    #gender_ablation = model_lib.assess_gender_contribution(train_df, test_df, feature_columns)
+        train_df, test_df, feature_columns
+    )
+    gender_ablation = model_lib.assess_gender_contribution(train_df, test_df, feature_columns)
 
-    threshold = model_lib.find_threshold_for_target_rate(predictions, target_rate=eda_report["class_balance"]["percentages"]["TakeUp"] / 100)
-    rate_comparison = model_lib.compare_approval_rates(predictions, eda_report["class_balance"]["percentages"]["TakeUp"] / 100, threshold)
-    metrics["rate_comparison"] = rate_comparison  # folds into training_metrics.yaml, no new file
-
+    # Rebase the classification threshold to match the historical base rate
+    # (class-weighted training shifts predicted probabilities away from it --
+    # see the earlier discussion). Everything downstream -- fairness, the
+    # confusion matrix -- should be computed at THIS threshold, not the
+    # Spark ML default of 0.5, so the numbers in metrics.yaml are internally
+    # consistent with each other.
+    threshold = model_lib.find_threshold_for_target_rate(
+        predictions, target_rate=eda_report["class_balance"]["percentages"]["TakeUp"] / 100
+    )
+    rate_comparison = model_lib.compare_approval_rates(
+        predictions, eda_report["class_balance"]["percentages"]["TakeUp"] / 100, threshold
+    )
     ax = viz.plot_threshold_comparison(rate_comparison)
     ensure_parent_dir(output_cfg["threshold_comparison_plot_path"])
     ax.figure.savefig(output_cfg["threshold_comparison_plot_path"], bbox_inches="tight")
 
     predictions_at_threshold = predictions.withColumn(
-    "prediction",
-    (vector_to_array(F.col("probability")).getItem(1) >= threshold).cast("double"),
+        "prediction",
+        (vector_to_array(F.col("probability")).getItem(1) >= threshold).cast("double"),
     )
-    fairness = model_lib.fairness_report(predictions_at_threshold)  # replaces the default-threshold fairness call
+    fairness = model_lib.fairness_report(predictions_at_threshold)
 
-    gender_ablation = model_lib.assess_gender_contribution(
-    train_df, test_df, feature_columns,
-    reg_param=model_cfg.get("reg_param", 0.1),
-    elastic_net_param=model_cfg.get("elastic_net_param", 0.0),
-)
+    cm = model_lib.compute_confusion_matrix(predictions_at_threshold)
+    ax = viz.plot_confusion_matrix(cm)
+    ensure_parent_dir(output_cfg["confusion_matrix_plot_path"])
+    ax.figure.savefig(output_cfg["confusion_matrix_plot_path"], bbox_inches="tight")
 
     metrics = {
         "roc_auc": auc,
@@ -256,6 +256,8 @@ def main() -> None:
         "feature_columns": feature_columns,
         "fairness": fairness,
         "gender_ablation": gender_ablation,
+        "rate_comparison": rate_comparison,
+        "confusion_matrix": cm,
     }
     write_yaml(output_cfg["metrics_path"], metrics)
     print(f"       ROC-AUC: {auc:.4f}")

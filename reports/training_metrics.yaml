@@ -22,13 +22,13 @@ feature_columns:
 - requested_amount
 fairness:
   approval_rate_by_gender:
-    Female: 0.42758620689655175
-    Male: 0.18732782369146006
+    Female: 0.23793103448275862
+    Male: 0.06887052341597796
   approval_rate_by_age_band:
-    36-50: 0.20774647887323944
-    <=25: 0.6071428571428571
-    26-35: 0.34017595307917886
-  disparate_impact_ratio_gender: 0.4381053941171243
+    36-50: 0.1056338028169014
+    <=25: 0.2857142857142857
+    26-35: 0.16422287390029325
+  disparate_impact_ratio_gender: 0.289455823052661
   four_fifths_rule_flag: true
 gender_ablation:
   auc_with_gender: 0.9068314210061786
@@ -37,3 +37,13 @@ gender_ablation:
   interpretation: Gender adds little to no measurable predictive power here; excluding
     it from the live model costs little and removes a protected characteristic from
     a lending decision.
+rate_comparison:
+  historical_base_rate: 0.14300000000000002
+  predicted_rate_default_threshold: 0.29402756508422667
+  predicted_rate_rebased_threshold: 0.1439509954058193
+  threshold_used: 0.7486666612702821
+confusion_matrix:
+  true_negative: 508
+  false_positive: 42
+  false_negative: 51
+  true_positive: 52
